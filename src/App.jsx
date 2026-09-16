@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import './App.css'
 import avaLogo from './assets/ava-logo.png'
+import { Analytics } from '@vercel/analytics/react';
 
 const PROXY_URL = 'https://customer-id-lookup-production.up.railway.app'
 
@@ -153,6 +154,7 @@ function App() {
           Need help? Contact your AVA Capital relationship manager.
         </p>
       </main>
+      <Analytics />
     </div>
   )
 }

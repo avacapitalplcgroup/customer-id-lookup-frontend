@@ -1,9 +1,43 @@
 import { useState } from 'react'
 import './App.css'
 import avaLogo from './assets/ava-logo.png'
-import { Analytics } from '@vercel/analytics/react';
 
 const PROXY_URL = 'https://customer-id-lookup-production.up.railway.app'
+const CACHE_KEY_PREFIX = 'ava_customer_'
+const CACHE_TTL = 30 * 24 * 60 * 60 * 1000 // 30 days in milliseconds
+
+function getFromCache(email) {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY_PREFIX + email.toLowerCase().trim())
+    if (!raw) return null
+    const { data, cachedAt } = JSON.parse(raw)
+    if (Date.now() - cachedAt > CACHE_TTL) {
+      localStorage.removeItem(CACHE_KEY_PREFIX + email.toLowerCase().trim())
+      return null
+    }
+    return data
+  } catch {
+    return null
+  }
+}
+
+function saveToCache(email, data) {
+  try {
+    const minimal = {
+      customer_id: data.customer_id,
+      customer_name: data.customer_name,
+      email_address: data.email_address,
+      customer_type: data.customer_type,
+      kyc_status: data.kyc_status,
+    }
+    localStorage.setItem(
+      CACHE_KEY_PREFIX + email.toLowerCase().trim(),
+      JSON.stringify({ data: minimal, cachedAt: Date.now() })
+    )
+  } catch {
+    // localStorage might be unavailable (e.g. private browsing) — fail silently
+  }
+}
 
 function App() {
   const [email, setEmail] = useState('')
@@ -20,6 +54,13 @@ function App() {
     setError(null)
     setCustomer(null)
 
+    const cached = getFromCache(email)
+    if (cached) {
+      setCustomer(cached)
+      setLoading(false)
+      return
+    }
+
     try {
       const res = await fetch(`${PROXY_URL}/customer?email=${encodeURIComponent(email.trim())}`, {
         method: 'GET',
@@ -32,6 +73,7 @@ function App() {
         throw new Error(data.error || 'Something went wrong. Please try again.')
       }
 
+      saveToCache(email, data)
       setCustomer(data)
     } catch (err) {
       setError(err.message)
@@ -154,7 +196,6 @@ function App() {
           Need help? Contact your AVA Capital relationship manager.
         </p>
       </main>
-      <Analytics />
     </div>
   )
 }
